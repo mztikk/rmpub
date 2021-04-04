@@ -62,11 +62,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let package = meta.get_workspace_package().unwrap();
     println!("{}", package.id);
 
-    let path = Path::new(&args.publish_dir)
+    let publish_path = Path::new(&args.publish_dir)
         .join(&package.name)
         .join(&package.version);
 
-    println!("{}", path.to_string_lossy());
+    println!("{}", publish_path.to_string_lossy());
 
     // linux binary has no extension, while windows has .exe
     let file_candidates = vec![format!("{}", package.name), format!("{}.exe", package.name)];
@@ -103,28 +103,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let final_dir = path.join(compile_dir);
+        let publish_dir = publish_path.join(compile_dir);
         for fc in &file_candidates {
             let file = compile_path.join(fc);
             if !file.exists() {
                 continue;
             }
 
-            let final_path = final_dir.join(fc);
+            let publish_path = publish_dir.join(fc);
             // dont overwrite same version(even if it may be diff)
-            if final_path.exists() {
+            if publish_path.exists() {
                 println!(
-                    "{} already exists with version {}",
-                    package.name, package.version
+                    "{} already exists with version {} and target {}",
+                    package.name,
+                    package.version,
+                    compile_dir.to_string_lossy()
                 );
                 continue;
             }
 
-            if !final_dir.exists() {
-                std::fs::create_dir_all(&final_dir)?;
+            if !publish_dir.exists() {
+                std::fs::create_dir_all(&publish_dir)?;
             }
-            println!("{}", final_path.to_string_lossy());
-            std::fs::copy(file, final_path)?;
+            println!("{}", publish_path.to_string_lossy());
+            std::fs::copy(file, publish_path)?;
 
             // there shouldnt be another
             break;
