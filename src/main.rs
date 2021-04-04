@@ -68,6 +68,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", path.to_string_lossy());
 
+    // linux binary has no extension, while windows has .exe
+    let file_candidates = vec![format!("{}", package.name), format!("{}.exe", package.name)];
+
     // assume
     // | release
     // | x86_64-pc-windows-gnu
@@ -79,45 +82,52 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let entry = entry?;
         let compile_path = entry.path();
 
-        // linux binary has no extension, while windows has .exe
-        let file_candidates = vec![format!("{}", package.name), format!("{}.exe", package.name)];
+        if !compile_path.is_dir() {
+            continue;
+        }
 
-        if compile_path.is_dir() {
-            let dir_name = compile_path.file_stem().unwrap();
-            // ignore debug and release dirs and only publish target compiled versions
-            if dir_name.eq("debug") || dir_name.eq("release") {
+        let compile_dir = compile_path.file_stem().unwrap();
+
+        // ignore debug and release dirs and only publish target compiled versions
+        if compile_dir.eq("debug") || compile_dir.eq("release") {
+            continue;
+        }
+        println!("{}", compile_dir.to_string_lossy());
+
+        let compile_path = compile_path.join("release");
+        if !compile_path.exists() {
+            println!(
+                "'{}' was not compiled in release mode",
+                compile_dir.to_string_lossy()
+            );
+            continue;
+        }
+
+        let final_dir = path.join(compile_dir);
+        for fc in &file_candidates {
+            let file = compile_path.join(fc);
+            if !file.exists() {
                 continue;
             }
-            println!("{}", dir_name.to_string_lossy());
 
-            let compile_path = compile_path.join("release");
-            if !compile_path.exists() {
+            let final_path = final_dir.join(fc);
+            // dont overwrite same version(even if it may be diff)
+            if final_path.exists() {
                 println!(
-                    "'{}' was not compiled in release mode",
-                    dir_name.to_string_lossy()
+                    "{} already exists with version {}",
+                    package.name, package.version
                 );
                 continue;
             }
-            let final_dir = path.join(dir_name);
-            for fc in &file_candidates {
-                let file = compile_path.join(fc);
-                if file.exists() {
-                    let final_path = final_dir.join(fc);
-                    // dont overwrite same version(even if it may be diff)
-                    if final_path.exists() {
-                        continue;
-                    }
 
-                    if !final_dir.exists() {
-                        std::fs::create_dir_all(&final_dir)?;
-                    }
-                    println!("{}", final_path.to_string_lossy());
-                    std::fs::copy(file, final_path)?;
-
-                    // there shouldnt be another
-                    break;
-                }
+            if !final_dir.exists() {
+                std::fs::create_dir_all(&final_dir)?;
             }
+            println!("{}", final_path.to_string_lossy());
+            std::fs::copy(file, final_path)?;
+
+            // there shouldnt be another
+            break;
         }
     }
 
