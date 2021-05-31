@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", publish_path.to_string_lossy());
 
     // linux binary has no extension, while windows has .exe
-    let file_candidates = vec![format!("{}", package.name), format!("{}.exe", package.name)];
+    let file_candidates = vec![package.name.to_string(), format!("{}.exe", package.name)];
 
     // assume
     // | release
